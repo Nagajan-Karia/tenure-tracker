@@ -96,7 +96,7 @@
         const table = document.getElementById("dataTable");
         statusMsg.style.display = "block";
         statusMsg.innerHTML = "📥 ડેટા લોડ થઈ રહ્યો છે...";
-
+ 
         try {
             const response = await fetch(${API_URL}?pass=${encodeURIComponent(userPassword)});
             const result = await response.json();
