@@ -62,7 +62,7 @@
 </div>
 
 <script>
-  // ⚠️ તમારી Tenure Google Sheet ની Web App URL અહીં મુકો
+  // ⚠️ તમારી Tenure Google Sheet ની Web App URL અહીં મૂકો
   const API_URL = "https://script.google.com/macros/s/AKfycby_Y5SysHadS_iI8JvoOOKfnQT0RN0Y6pMeElZZ4AdgOgv9kR7S7F11DbOYF8KpeJ5P8A/exec";
 
   let rawData = [];
@@ -111,9 +111,9 @@
     headerRow.innerHTML = "";
     bodyRows.innerHTML = "";
 
-    if (rawData.length === 0) return;
+    if (!rawData || rawData.length === 0) return;
 
-    // Header set
+    // Header Set
     rawData[0].forEach(header => {
       const th = document.createElement("th");
       th.innerText = header;
@@ -143,7 +143,7 @@
       }
     }
 
-    document.getElementById("rowCount").innerText = કુલ કર્મચારીઓ: ${matchedCount};
+    document.getElementById("rowCount").innerText = "Total: " + matchedCount;
   }
 
   function extractYears(cellValue) {
