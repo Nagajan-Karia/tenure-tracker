@@ -19,6 +19,7 @@
     .btn-4yr { background-color: #e53e3e; }
     .btn-5yr { background-color: #9b2c2c; }
     .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn:active { transform: scale(0.95); }
     
     #statusMsg { text-align: center; font-weight: bold; margin: 15px 0; color: #2b6cb0; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; display: none; }
@@ -89,9 +90,9 @@
       if (result.status === "success" && result.data && result.data.length > 0) {
         rawData = result.data;
         
-        // હેડર રો માંથી PS JOIN DATE શોધી કાઢશે
+        // E કોલમ અથવા હેડર પરથી PS JOIN DATE શોધવું
         const headers = rawData[0];
-        let foundIdx = headers.findIndex(h => h.toString().toUpperCase().includes("PS JOIN DATE"));
+        let foundIdx = headers.findIndex(h => h && h.toString().toUpperCase().includes("PS JOIN DATE"));
         if (foundIdx !== -1) psIndex = foundIdx;
 
         statusMsg.style.display = "none";
@@ -114,17 +115,21 @@
   function filterTenure(minYears) {
     const headerRow = document.getElementById("tableHeader");
     const bodyRows = document.getElementById("tableBody");
+    
+    // જૂના ટેબલનો બધો ડેટા સાફ કરો
     headerRow.innerHTML = "";
     bodyRows.innerHTML = "";
 
     if (!rawData || rawData.length === 0) return;
 
-    // 1. સેટ હેડર્સ (સાથે છેલ્લે 'ટેન્યુઅર (વર્ષ)' કોલમ ઉમેરશે)
+    // 1. Header સેટિંગ્સ
     rawData[0].forEach(header => {
       const th = document.createElement("th");
       th.innerText = header;
       headerRow.appendChild(th);
     });
+    
+    // છેલ્લી ગણતરીની કોલમ
     const extraTh = document.createElement("th");
     extraTh.innerText = "ટેન્યુઅર (વર્ષ)";
     extraTh.style.backgroundColor = "#c53030";
@@ -132,25 +137,26 @@
 
     let matchedCount = 0;
 
-    // 2. ડેટા લાઈન્સ ચેક કરો
+    // 2. રો (Rows) ફિલ્ટર કરો
     for (let i = 1; i < rawData.length; i++) {
       const row = rawData[i];
       const joinCell = row[psIndex];
-      const yearsServed = calculateYears(joinCell);
+      const yearsServed = getYears(joinCell);
 
+      // શરત: જો માંગેલા વર્ષ (minYears) કરતાં વધુ કે સરખા વર્ષ હોય તો જ બતાવશે
       if (minYears === 0 || yearsServed >= minYears) {
         const tr = document.createElement("tr");
         
-        // મૂળ ડેટા પ્રિન્ટ કરો
+        // તમામ ડેટા પ્રિન્ટ કરો
         row.forEach(cell => {
           const td = document.createElement("td");
-          td.innerText = cell;
+          td.innerText = cell !== undefined ? cell : "";
           tr.appendChild(td);
         });
 
-        // છેલ્લી કોલમમાં કેટલા વર્ષ થયા તે બતાવો
+        // છેલ્લી કોલમમાં કેટલા વર્ષ થયા તે ગણેલું બતાવશે
         const extraTd = document.createElement("td");
-        extraTd.innerText = yearsServed > 0 ? yearsServed.toFixed(1) + " વર્ષ" : "ગણતરી બાકી";
+        extraTd.innerText = yearsServed > 0 ? yearsServed.toFixed(1) + " વર્ષ" : "૦";
         extraTd.style.fontWeight = "bold";
         extraTd.style.color = yearsServed >= 5 ? "#9b2c2c" : (yearsServed >= 3 ? "#dd6b20" : "#2b6cb0");
         tr.appendChild(extraTd);
@@ -163,41 +169,41 @@
     document.getElementById("rowCount").innerText = "કુલ કર્મચારીઓ: " + matchedCount;
   }
 
-  // 🤖 અત્યંત મજબૂત તારીખ અને વર્ષ ગણવાનું લોજિક (નંબર, ડેટ કે સ્ટ્રિંગ બધું જ ચાલશે)
-  function calculateYears(val) {
-    if (val === null || val === undefined || val === '') return 0;
-    
-    let dt = null;
+  // 🤖 DD/MM/YYYY તારીખમાંથી વર્ષ ગણવા માટેનું ખાસ ફંક્શન
+  function getYears(val) {
+    if (!val) return 0;
 
-    // જો ગૂગલ શીટ નંબર (Serial Date) મોકલે
-    if (typeof val === 'number') {
-      dt = new Date((val - 25569) * 86400 * 1000);
-    } 
-    // જો ડેટ ઓબ્જેક્ટ હોય
-    else if (val instanceof Date) {
-      dt = val;
-    } 
-    // જો ટેક્સ્ટ (સ્ટ્રિંગ) હોય
-    else if (typeof val === 'string') {
-      const str = val.trim();
-      if (!isNaN(str) && str.length > 4) {
-        dt = new Date((parseFloat(str) - 25569) * 86400 * 1000);
-      } else if (str.includes('/') || str.includes('-')) {
-        const parts = str.split(/[\/\-]/);
-        if (parts.length === 3) {
-          if (parts[0].length === 4) {
-            dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-          } else {
-            dt = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-          }
-        }
+    let day = 0, month = 0, year = 0;
+    const str = val.toString().trim();
+
+    // DD/MM/YYYY અથવા DD-MM-YYYY સપોર્ટ માટે
+    const parts = str.split(/[\/\-]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD
+        year = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10) - 1;
+        day = parseInt(parts[2], 10);
+      } else {
+        // DD/MM/YYYY
+        day = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10) - 1;
+        year = parseInt(parts[2], 10);
+      }
+    } else {
+      // જો ગૂગલ ડાયરેક્ટ તારીખ મોકલે
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) {
+        year = d.getFullYear();
+        month = d.getMonth();
+        day = d.getDate();
       }
     }
 
-    if (dt && !isNaN(dt.getTime())) {
-      const today = new Date();
-      const diffTime = today - dt;
-      const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+    if (year > 1900) {
+      const joinDate = new Date(year, month, day);
+      const today = new Date(); // 2026
+      const diffYears = (today - joinDate) / (1000 * 60 * 60 * 24 * 365.25);
       return diffYears > 0 ? diffYears : 0;
     }
 
