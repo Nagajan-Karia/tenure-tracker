@@ -62,9 +62,8 @@
 </div>
 
 <script>
-  // ⚠️ તમારી Tenure Google Sheet ની Web App URL અહીં મુકો
   const API_URL = "https://script.google.com/macros/s/AKfycbysu-eBjalOMAI_l0c1wZSIUwHH_BrgTDe3KykAYzLnjTu0dE-lYYEeAuFF0S9eAD4/exec";
-                 
+
   let rawData = [];
 
   async function login() {
@@ -101,7 +100,7 @@
     } catch (error) {
       console.error(error);
       statusMsg.style.color = "red";
-      statusMsg.innerHTML = "❌ કનેક્શનમાં ભૂલ આવી! કૃપા કરીને Apps Script ની લિંક ચેક કરો.";
+      statusMsg.innerHTML = "❌ કનેક્શનમાં ભૂલ આવી!";
     }
   }
 
@@ -113,7 +112,6 @@
 
     if (!rawData || rawData.length === 0) return;
 
-    // Header Set
     const headers = rawData[0];
     headers.forEach(header => {
       const th = document.createElement("th");
@@ -121,26 +119,21 @@
       headerRow.appendChild(th);
     });
 
-    // PS JOIN DATE કઈ કોલમમાં છે તે શોધો (E કોલમ = Index 4)
-    let psIndex = headers.findIndex(h => h.toString().trim().toUpperCase().includes("PS JOIN DATE"));
-    if (psIndex === -1) psIndex = 4; // Default E column
+    // E કોલમ = Index 4 (PS JOIN DATE)
+    let psIndex = 4; 
 
     let matchedCount = 0;
 
     for (let i = 1; i < rawData.length; i++) {
       const row = rawData[i];
       const joinCell = row[psIndex];
-      const yearsServed = calculateYearsFromDate(joinCell);
+      const yearsServed = calculateYears(joinCell);
 
       if (minYears === 0 || yearsServed >= minYears) {
         const tr = document.createElement("tr");
         row.forEach((cell, idx) => {
           const td = document.createElement("td");
-          if (idx === psIndex && cell) {
-            td.innerText = formatDateDisplay(cell);
-          } else {
-            td.innerText = cell;
-          }
+          td.innerText = cell;
           tr.appendChild(td);
         });
         bodyRows.appendChild(tr);
@@ -151,57 +144,37 @@
     document.getElementById("rowCount").innerText = "કુલ કર્મચારીઓ: " + matchedCount;
   }
 
-  // 💡 કોઈપણ ફોર્મેટમાંથી આજની તારીખ (2026) પ્રમાણે ઓટોમેટિક વર્ષ ગણવાનું લોજિક
-  function calculateYearsFromDate(val) {
+  // 🚀 દરેક તારીખ ફોર્મેટમાંથી ઓટોમેટિક વર્ષ ગણવાનું મજબૂત લોજિક
+  function calculateYears(val) {
     if (!val) return 0;
 
-    let year = 0, month = 0, day = 1;
+    let dt = null;
 
-    // 1. DD/MM/YYYY ફોર્મેટ (ઉદા. 21/05/2021)
-    if (typeof val === 'string' && val.includes('/')) {
-      const p = val.split('/');
-      if (p.length === 3) {
-        day = parseInt(p[0], 10);
-        month = parseInt(p[1], 10) - 1;
-        year = parseInt(p[2], 10);
+    // જો ગૂગલ શીટમાંથી સીધી Date ઓબ્જેક્ટ અથવા ISO Text આવે
+    if (typeof val === 'string') {
+      const str = val.trim();
+      // 1. DD/MM/YYYY ફોર્મેટ
+      if (str.includes('/')) {
+        const p = str.split('/');
+        if (p.length === 3) {
+          dt = new Date(parseInt(p[2], 10), parseInt(p[1], 10) - 1, parseInt(p[0], 10));
+        }
+      } 
+      // 2. YYYY-MM-DD (ગૂગલ બેકએન્ડ ફોર્મેટ)
+      else if (str.includes('-')) {
+        dt = new Date(str);
       }
-    } 
-    // 2. YYYY-MM-DD (ISO તારીખ ફોર્મેટ)
-    else if (typeof val === 'string' && val.includes('-')) {
-      const p = val.split('T')[0].split('-');
-      if (p.length === 3) {
-        year = parseInt(p[0], 10);
-        month = parseInt(p[1], 10) - 1;
-        day = parseInt(p[2], 10);
-      }
-    }
-    // 3. ગૂગલ શીટમાંથી સીધી Date ઓબ્જેક્ટ આવે ત્યારે
-    else if (val instanceof Date || !isNaN(Date.parse(val))) {
-      const d = new Date(val);
-      year = d.getFullYear();
-      month = d.getMonth();
-      day = d.getDate();
+    } else if (val instanceof Date) {
+      dt = val;
     }
 
-    if (year > 1900) {
-      const joinDate = new Date(year, month, day);
-      const today = new Date(); // 2026
-      const diffTime = today - joinDate;
-      const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+    if (dt && !isNaN(dt.getTime())) {
+      const today = new Date();
+      const diffYears = (today - dt) / (1000 * 60 * 60 * 24 * 365.25);
       return diffYears > 0 ? diffYears : 0;
     }
 
     return 0;
-  }
-
-  function formatDateDisplay(val) {
-    if (!val) return '';
-    if (typeof val === 'string' && val.includes('/')) return val;
-    if (typeof val === 'string' && val.includes('-')) {
-      const p = val.split('T')[0].split('-');
-      if (p.length === 3 && p[0].length === 4) return ${p[2]}/${p[1]}/${p[0]};
-    }
-    return val;
   }
 
   function searchTable() {
