@@ -1,157 +1,123 @@
 <!DOCTYPE html>
 <html lang="gu">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Police Station Tenure Tracker</title>
-    <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 900px; margin: auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #1a365d; margin-bottom: 20px; font-weight: 700; }
-        
-        /* લોગિન બોક્સની સ્ટાઈલ */
-        .login-box { max-width: 400px; margin: 50px auto; padding: 25px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); text-align: center; }
-        .login-box input[type="password"] { width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #cbd5e1; border-radius: 8px; font-size: 16px; outline: none; }
-        .login-box button { width: 100%; padding: 12px; background-color: #1e293b; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        .login-box button:hover { background-color: #0f172a; }
-
-        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
-        input[type="text"] { flex: 1; padding: 12px 15px; border: 2px solid #cbd5e1; border-radius: 8px; font-size: 16px; outline: none; transition: 0.3s; }
-        input[type="text"]:focus { border-color: #2563eb; }
-        .btn-refresh { padding: 12px 25px; background-color: #2563eb; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: 0.3s; font-weight: bold; }
-        .btn-refresh:hover { background-color: #1d4ed8; }
-        
-        .status { text-align: center; font-weight: bold; margin: 15px 0; color: #64748b; }
-        .table-container { overflow-x: auto; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; background: white; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        th { background-color: #1e293b; color: white; font-size: 15px; white-space: nowrap; }
-        tr:hover { background-color: #f8fafc; }
-        .error { color: #ef4444; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Police Station Tenure Tracker</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 900px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    h2 { text-align: center; color: #1a365d; margin-bottom: 20px; }
+    .login-box, .search-box { margin-bottom: 20px; text-align: center; }
+    input[type="password"], input[type="text"] { padding: 10px 15px; width: 60%; max-width: 300px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+    button { padding: 10px 20px; background-color: #2b6cb0; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-left: 10px; }
+    button:hover { background-color: #2c5282; }
+    #statusMsg { text-align: center; font-weight: bold; margin: 15px 0; color: #2b6cb0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; display: none; }
+    th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+    th { background-color: #2b6cb0; color: white; }
+    tr:nth-child(even) { background-color: #f7fafc; }
+  </style>
 </head>
 <body>
 
-<!-- પાસવર્ડ લોગિન સ્ક્રીન -->
-<div id="loginSection" class="login-box">
-    <h2>🔐 સિક્યોર લોગિન</h2>
-    <p>ડેટા જોવા માટે પાસવર્ડ એન્ટર કરો</p>
-    <input type="password" id="passInput" placeholder="અહીં પાસવર્ડ લખો...">
+<div class="container">
+  <h2>Police Station Tenure Tracker</h2>
+
+  <!-- Login Section -->
+  <div id="loginSection" class="login-box">
+    <input type="password" id="userPassword" placeholder="પાસવર્ડ નાખો...">
     <button onclick="login()">ઓપન કરો</button>
-    <div id="loginError" class="status error" style="display:none;"></div>
-</div>
+  </div>
 
-<!-- મેઇન ડેશબોર્ડ (શરૂઆતમાં સંતાડેલું રહેશે) -->
-<div id="mainDashboard" class="container" style="display: none;">
-    <h2>👮‍♂️ Police Station Tenure Tracker</h2>
-    
-    <div class="search-box">
-        <input type="text" id="searchInput" placeholder="બકલ નંબર, નામ કે પોઈન્ટ શોધો..." onkeyup="filterData()">
-        <button class="btn-refresh" onclick="fetchData()">🔄 ડેટા રિફ્રેશ કરો</button>
-    </div>
+  <!-- Search Section -->
+  <div id="searchSection" class="search-box" style="display:none;">
+    <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="નામ કે વિગત શોધો...">
+  </div>
 
-    <div id="statusMessage" class="status"></div>
+  <div id="statusMsg"></div>
 
-    <div class="table-container">
-        <table id="dataTable" style="display: none;">
-            <thead id="tableHead"></thead>
-            <tbody id="tableBody"></tbody>
-        </table>
-    </div>
+  <!-- Data Table -->
+  <table id="dataTable">
+    <thead><tr id="tableHeader"></tr></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwFRshQs8oQQfSS873BvLjU2ff3SWDph2gaxmVLw8weMfnPZCSs4QiG-dFNKxg-MY_SUg/exec";
-    let userPassword = "";
-    let allData = [];
+  // તમારી નવી Apps Script Web App URL અહીં નીચે અવતરણ ચિહ્નો (" ") ની વચ્ચે મુકો
+  const API_URL = "https://script.google.com/macros/s/AKfycbwFRshQs8oQQfSS873BvLjU2ff3SWDph2gaxmVLw8weMfnPZCSs4QiG-dFNKxg-MY_SUg/exec";
 
-    async function login() {
-        const pass = document.getElementById("passInput").value;
-        const errDiv = document.getElementById("loginError");
-        
-        if (!pass) {
-            errDiv.style.display = "block";
-            errDiv.innerHTML = "⚠️ મહેરબાની કરીને પાસવર્ડ એન્ટર કરો!";
-            return;
-        }
+  let allData = [];
 
-        userPassword = pass;
-        errDiv.style.display = "block";
-        errDiv.style.color = "#2563eb";
-        errDiv.innerHTML = "⏳ પાસવર્ડ વેરિફાય થઈ રહ્યો છે...";
-
-        const success = await fetchData();
-        if (success) {
-            document.getElementById("loginSection").style.display = "none";
-            document.getElementById("mainDashboard").style.display = "block";
-        } else {
-            errDiv.style.color = "#ef4444";
-            errDiv.innerHTML = "❌ ખોટો પાસવર્ડ! ફરી પ્રયત્ન કરો.";
-        }
+  async function login() {
+    const userPassword = document.getElementById("userPassword").value;
+    const statusMsg = document.getElementById("statusMsg");
+    
+    if(!userPassword) {
+      alert("મહેરબાની કરીને પાસવર્ડ નાખો!");
+      return;
     }
 
-    async function fetchData() {
-        const statusMsg = document.getElementById("statusMessage");
-        const table = document.getElementById("dataTable");
-        statusMsg.style.display = "block";
-        statusMsg.innerHTML = "📥 ડેટા લોડ થઈ રહ્યો છે...";
- 
-        try {
-            const response = await fetch(${API_URL}?pass=${encodeURIComponent(userPassword)});
-            const result = await response.json();
+    statusMsg.style.display = "block";
+    statusMsg.innerHTML = "⏳ ડેટા લોડ થઈ રહ્યો છે...";
 
-            if (result.status === "success" && result.data.length > 0) {
-                allData = result.data;
-                renderTable(allData);
-                statusMsg.style.display = "none";
-                table.style.display = "table";
-                return true;
-            } else {
-                return false;
-            }
-        } catch (error) {
-            console.error(error);
-            statusMsg.innerHTML = "❌ કનેક્શન પ્રોબ્લેમ! ફરી પ્રયત્ન કરો.";
-            return false;
-        }
+    try {
+      const response = await fetch(${API_URL}?pass=${encodeURIComponent(userPassword)});
+      const result = await response.json();
+
+      if (result.status === "success" && result.data.length > 0) {
+        allData = result.data;
+        renderTable(allData);
+        statusMsg.style.display = "none";
+        document.getElementById("dataTable").style.display = "table";
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("searchSection").style.display = "block";
+      } else {
+        statusMsg.style.color = "red";
+        statusMsg.innerHTML = "❌ ખોટો પાસવર્ડ! એક્સેસ ના મંજૂર.";
+      }
+    } catch (error) {
+      console.error(error);
+      statusMsg.style.color = "red";
+      statusMsg.innerHTML = "❌ ડેટા લોડ કરવામાં ભૂલ આવી. કૃપા કરીને ફરી પ્રયાસ કરો.";
     }
+  }
 
-    function renderTable(data) {
-        const thead = document.getElementById("tableHead");
-        const tbody = document.getElementById("tableBody");
-        
-        thead.innerHTML = "";
-        tbody.innerHTML = "";
+  function renderTable(data) {
+    const headerRow = document.getElementById("tableHeader");
+    const bodyRows = document.getElementById("tableBody");
+    headerRow.innerHTML = "";
+    bodyRows.innerHTML = "";
 
-        if (data.length === 0) return;
+    // Set Headers
+    data[0].forEach(header => {
+      const th = document.createElement("th");
+      th.innerText = header;
+      headerRow.appendChild(th);
+    });
 
-        let headRow = "<tr>";
-        data[0].forEach(col => { headRow += <th>${col}</th>; });
-        headRow += "</tr>";
-        thead.innerHTML = headRow;
-
-        for (let i = 1; i < data.length; i++) {
-            let bodyRow = "<tr>";
-            data[i].forEach(cell => {
-                bodyRow += <td>${cell !== null && cell !== undefined ? cell : ''}</td>;
-            });
-            bodyRow += "</tr>";
-            tbody.innerHTML += bodyRow;
-        }
+    // Set Rows
+    for (let i = 1; i < data.length; i++) {
+      const tr = document.createElement("tr");
+      data[i].forEach(cell => {
+        const td = document.createElement("td");
+        td.innerText = cell;
+        tr.appendChild(td);
+      });
+      bodyRows.appendChild(tr);
     }
+  }
 
-    function filterData() {
-        const query = document.getElementById("searchInput").value.toLowerCase();
-        if (allData.length === 0) return;
+  function filterTable() {
+    const input = document.getElementById("searchInput").value.toLowerCase();
+    const rows = document.querySelectorAll("#tableBody tr");
 
-        const headers = allData[0];
-        const filteredRows = allData.slice(1).filter(row => {
-            return row.some(cell => String(cell).toLowerCase().includes(query));
-        });
-
-        renderTable([headers, ...filteredRows]);
-    }
+    rows.forEach(row => {
+      const text = row.innerText.toLowerCase();
+      row.style.display = text.includes(input) ? "" : "none";
+    });
+  }
 </script>
 
 </body>
