@@ -45,7 +45,6 @@
 </div>
 
 <script>
-  // તમારી નવી Apps Script Web App URL અહીં નીચે અવતરણ ચિહ્નો (" ") ની વચ્ચે મુકો
   const API_URL = "https://script.google.com/macros/s/AKfycbwFRshQs8oQQfSS873BvLjU2ff3SWDph2gaxmVLw8weMfnPZCSs4QiG-dFNKxg-MY_SUg/exec";
 
   let allData = [];
@@ -63,7 +62,7 @@
     statusMsg.innerHTML = "⏳ ડેટા લોડ થઈ રહ્યો છે...";
 
     try {
-      const response = await fetch(${API_URL}?pass=${encodeURIComponent(userPassword)});
+      const response = await fetch(API_URL + "?pass=" + encodeURIComponent(userPassword));
       const result = await response.json();
 
       if (result.status === "success" && result.data.length > 0) {
@@ -90,17 +89,15 @@
     headerRow.innerHTML = "";
     bodyRows.innerHTML = "";
 
-    // Set Headers
-    data[0].forEach(header => {
+    data[0].forEach(function(header) {
       const th = document.createElement("th");
       th.innerText = header;
       headerRow.appendChild(th);
     });
 
-    // Set Rows
     for (let i = 1; i < data.length; i++) {
       const tr = document.createElement("tr");
-      data[i].forEach(cell => {
+      data[i].forEach(function(cell) {
         const td = document.createElement("td");
         td.innerText = cell;
         tr.appendChild(td);
@@ -113,7 +110,7 @@
     const input = document.getElementById("searchInput").value.toLowerCase();
     const rows = document.querySelectorAll("#tableBody tr");
 
-    rows.forEach(row => {
+    rows.forEach(function(row) {
       const text = row.innerText.toLowerCase();
       row.style.display = text.includes(input) ? "" : "none";
     });
