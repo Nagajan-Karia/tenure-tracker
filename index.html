@@ -18,7 +18,7 @@
     .btn-3yr { background-color: #dd6b20; }
     .btn-4yr { background-color: #e53e3e; }
     .btn-5yr { background-color: #9b2c2c; }
-    .btn:hover { opacity: 0.85; }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
     
     #statusMsg { text-align: center; font-weight: bold; margin: 15px 0; color: #2b6cb0; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; display: none; }
@@ -62,7 +62,7 @@
 </div>
 
 <script>
-  // ⚠️ તમારી Tenure Google Sheet ની Web App URL અહીં મૂકો
+  // ⚠️ અહીં તમારી TENURE SHEET ની Web App URL પેસ્ટ કરો:
   const API_URL = "https://script.google.com/macros/s/AKfycbysu-eBjalOMAI_l0c1wZSIUwHH_BrgTDe3KykAYzLnjTu0dE-lYYEeAuFF0S9eAD4/exec";
 
   let rawData = [];
@@ -124,14 +124,17 @@
 
     for (let i = 1; i < rawData.length; i++) {
       const row = rawData[i];
-      let rowYears = 0;
+      let maxYearsFoundInRow = 0;
 
+      // આખી રો (Row) ના બધા સેલમાં વર્ષ શોધશે
       row.forEach(cell => {
         const yrs = extractYears(cell);
-        if (yrs > rowYears) rowYears = yrs;
+        if (yrs > maxYearsFoundInRow) {
+          maxYearsFoundInRow = yrs;
+        }
       });
 
-      if (minYears === 0 || rowYears >= minYears) {
+      if (minYears === 0 || maxYearsFoundInRow >= minYears) {
         const tr = document.createElement("tr");
         row.forEach(cell => {
           const td = document.createElement("td");
@@ -143,28 +146,28 @@
       }
     }
 
-    document.getElementById("rowCount").innerText = "Total: " + matchedCount;
+    document.getElementById("rowCount").innerText = "કુલ કર્મચારીઓ: " + matchedCount;
   }
 
   function extractYears(cellValue) {
     if (!cellValue) return 0;
-    const str = cellValue.toString().toLowerCase();
+    const str = cellValue.toString().trim();
 
-    if (str.includes("વર્ષ") || str.includes("year")) {
-      const match = str.match(/\d+(\.\d+)?/);
-      if (match) return parseFloat(match[0]);
-    }
-    
-    if (str.includes("દિવસ") || str.includes("day")) {
-      const match = str.match(/\d+/);
-      if (match) return parseInt(match[0]) / 365;
+    // જો ગૂગલ શીટમાં તારીખ હોય (ઉદા. ISO Format)
+    if (!isNaN(Date.parse(str)) && str.length > 8 && (str.includes("-") || str.includes("/"))) {
+      const dateVal = new Date(str);
+      const diffTime = Math.abs(new Date() - dateVal);
+      const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+      return diffYears;
     }
 
-    const match = str.match(/\d+(\.\d+)?/);
-    if (match) {
-      const num = parseFloat(match[0]);
-      if (num > 100) return num / 365;
-      return num;
+    // નંબર કે ટેક્સ્ટમાંથી વર્ષ શોધવા
+    const numMatch = str.match(/\d+(\.\d+)?/);
+    if (numMatch) {
+      const val = parseFloat(numMatch[0]);
+      // જો મોટી સંખ્યા હોય (જેમ કે દિવસો > 100), તો વર્ષમાં ફેરવશે
+      if (val > 100) return val / 365;
+      return val;
     }
 
     return 0;
