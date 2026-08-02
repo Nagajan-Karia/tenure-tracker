@@ -62,11 +62,10 @@
 </div>
 
 <script>
-  // ⚠️ તમારી Tenure Google Sheet ની Web App URL અહીં મૂકો
+  // ⚠️ તમારી Tenure Google Sheet ની Web App URL અહીં મુકો
   const API_URL = "https://script.google.com/macros/s/AKfycbysu-eBjalOMAI_l0c1wZSIUwHH_BrgTDe3KykAYzLnjTu0dE-lYYEeAuFF0S9eAD4/exec";
-
+                 
   let rawData = [];
-  let psJoinDateIndex = -1; // PS JOIN DATE ની કોલમ નંબર શોધવા માટે
 
   async function login() {
     const userPassword = document.getElementById("userPassword").value.trim();
@@ -89,11 +88,6 @@
       if (result.status === "success" && result.data && result.data.length > 0) {
         rawData = result.data;
         
-        // PS JOIN DATE કઈ કોલમમાં છે તે શોધી લેશે (E કોલમ = Index 4)
-        const headers = rawData[0];
-        psJoinDateIndex = headers.findIndex(h => h.toString().toUpperCase().includes("PS JOIN DATE"));
-        if (psJoinDateIndex === -1) psJoinDateIndex = 4; // જો ન મળે તો ડિફોલ્ટ E કોલમ
-
         statusMsg.style.display = "none";
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("dashboardSection").style.display = "block";
@@ -120,27 +114,30 @@
     if (!rawData || rawData.length === 0) return;
 
     // Header Set
-    rawData[0].forEach(header => {
+    const headers = rawData[0];
+    headers.forEach(header => {
       const th = document.createElement("th");
       th.innerText = header;
       headerRow.appendChild(th);
     });
 
+    // PS JOIN DATE કઈ કોલમમાં છે તે શોધો (E કોલમ = Index 4)
+    let psIndex = headers.findIndex(h => h.toString().trim().toUpperCase().includes("PS JOIN DATE"));
+    if (psIndex === -1) psIndex = 4; // Default E column
+
     let matchedCount = 0;
 
     for (let i = 1; i < rawData.length; i++) {
       const row = rawData[i];
-      const joinDateCell = row[psJoinDateIndex]; // ફક્ત PS JOIN DATE ની જ ગણતરી થશે
-      const yearsServed = calculateYears(joinDateCell);
+      const joinCell = row[psIndex];
+      const yearsServed = calculateYearsFromDate(joinCell);
 
       if (minYears === 0 || yearsServed >= minYears) {
         const tr = document.createElement("tr");
         row.forEach((cell, idx) => {
           const td = document.createElement("td");
-          // જો તારીખ હોય તો યોગ્ય ફોર્મેટમાં બતાવશે
-          if (idx === psJoinDateIndex && cell) {
-            const d = parseGujDate(cell);
-            td.innerText = d ? d.toLocaleDateString('en-GB') : cell;
+          if (idx === psIndex && cell) {
+            td.innerText = formatDateDisplay(cell);
           } else {
             td.innerText = cell;
           }
@@ -154,32 +151,57 @@
     document.getElementById("rowCount").innerText = "કુલ કર્મચારીઓ: " + matchedCount;
   }
 
-  // DD/MM/YYYY તારીખમાંથી વર્ષ ગણવાનું ખાસ ફંક્શન
-  function calculateYears(dateStr) {
-    if (!dateStr) return 0;
-    const parsedDate = parseGujDate(dateStr);
-    if (!parsedDate) return 0;
+  // 💡 કોઈપણ ફોર્મેટમાંથી આજની તારીખ (2026) પ્રમાણે ઓટોમેટિક વર્ષ ગણવાનું લોજિક
+  function calculateYearsFromDate(val) {
+    if (!val) return 0;
 
-    const today = new Date();
-    const diffTime = today - parsedDate;
-    const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
-    return diffYears > 0 ? diffYears : 0;
-  }
+    let year = 0, month = 0, day = 1;
 
-  function parseGujDate(dateStr) {
-    if (dateStr instanceof Date) return dateStr;
-    const str = dateStr.toString().trim();
-    
-    // DD/MM/YYYY અથવા DD-MM-YYYY સપોર્ટ માટે
-    const parts = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-    if (parts) {
-      return new Date(parts[3], parts[2] - 1, parts[1]);
+    // 1. DD/MM/YYYY ફોર્મેટ (ઉદા. 21/05/2021)
+    if (typeof val === 'string' && val.includes('/')) {
+      const p = val.split('/');
+      if (p.length === 3) {
+        day = parseInt(p[0], 10);
+        month = parseInt(p[1], 10) - 1;
+        year = parseInt(p[2], 10);
+      }
+    } 
+    // 2. YYYY-MM-DD (ISO તારીખ ફોર્મેટ)
+    else if (typeof val === 'string' && val.includes('-')) {
+      const p = val.split('T')[0].split('-');
+      if (p.length === 3) {
+        year = parseInt(p[0], 10);
+        month = parseInt(p[1], 10) - 1;
+        day = parseInt(p[2], 10);
+      }
+    }
+    // 3. ગૂગલ શીટમાંથી સીધી Date ઓબ્જેક્ટ આવે ત્યારે
+    else if (val instanceof Date || !isNaN(Date.parse(val))) {
+      const d = new Date(val);
+      year = d.getFullYear();
+      month = d.getMonth();
+      day = d.getDate();
     }
 
-    const isoDate = Date.parse(str);
-    if (!isNaN(isoDate)) return new Date(isoDate);
+    if (year > 1900) {
+      const joinDate = new Date(year, month, day);
+      const today = new Date(); // 2026
+      const diffTime = today - joinDate;
+      const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+      return diffYears > 0 ? diffYears : 0;
+    }
 
-    return null;
+    return 0;
+  }
+
+  function formatDateDisplay(val) {
+    if (!val) return '';
+    if (typeof val === 'string' && val.includes('/')) return val;
+    if (typeof val === 'string' && val.includes('-')) {
+      const p = val.split('T')[0].split('-');
+      if (p.length === 3 && p[0].length === 4) return ${p[2]}/${p[1]}/${p[0]};
+    }
+    return val;
   }
 
   function searchTable() {
