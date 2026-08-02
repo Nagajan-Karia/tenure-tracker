@@ -1,1 +1,158 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Police Station Tenure Tracker</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 900px; margin: auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #1a365d; margin-bottom: 20px; font-weight: 700; }
+        
+        /* લોગિન બોક્સની સ્ટાઈલ */
+        .login-box { max-width: 400px; margin: 50px auto; padding: 25px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); text-align: center; }
+        .login-box input[type="password"] { width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #cbd5e1; border-radius: 8px; font-size: 16px; outline: none; }
+        .login-box button { width: 100%; padding: 12px; background-color: #1e293b; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .login-box button:hover { background-color: #0f172a; }
 
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 12px 15px; border: 2px solid #cbd5e1; border-radius: 8px; font-size: 16px; outline: none; transition: 0.3s; }
+        input[type="text"]:focus { border-color: #2563eb; }
+        .btn-refresh { padding: 12px 25px; background-color: #2563eb; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        .btn-refresh:hover { background-color: #1d4ed8; }
+        
+        .status { text-align: center; font-weight: bold; margin: 15px 0; color: #64748b; }
+        .table-container { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #1e293b; color: white; font-size: 15px; white-space: nowrap; }
+        tr:hover { background-color: #f8fafc; }
+        .error { color: #ef4444; }
+    </style>
+</head>
+<body>
+
+<!-- પાસવર્ડ લોગિન સ્ક્રીન -->
+<div id="loginSection" class="login-box">
+    <h2>🔐 સિક્યોર લોગિન</h2>
+    <p>ડેટા જોવા માટે પાસવર્ડ એન્ટર કરો</p>
+    <input type="password" id="passInput" placeholder="અહીં પાસવર્ડ લખો...">
+    <button onclick="login()">ઓપન કરો</button>
+    <div id="loginError" class="status error" style="display:none;"></div>
+</div>
+
+<!-- મેઇન ડેશબોર્ડ (શરૂઆતમાં સંતાડેલું રહેશે) -->
+<div id="mainDashboard" class="container" style="display: none;">
+    <h2>👮‍♂️ Police Station Tenure Tracker</h2>
+    
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="બકલ નંબર, નામ કે પોઈન્ટ શોધો..." onkeyup="filterData()">
+        <button class="btn-refresh" onclick="fetchData()">🔄 ડેટા રિફ્રેશ કરો</button>
+    </div>
+
+    <div id="statusMessage" class="status"></div>
+
+    <div class="table-container">
+        <table id="dataTable" style="display: none;">
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbxW0YwghJm6HVimDF94cVTwoCA2Z8E48QNMVH4-cSCs3E2e0jOckVbS1kyEwf_UEgHlGw/exec";
+    let userPassword = "";
+    let allData = [];
+
+    async function login() {
+        const pass = document.getElementById("passInput").value;
+        const errDiv = document.getElementById("loginError");
+        
+        if (!pass) {
+            errDiv.style.display = "block";
+            errDiv.innerHTML = "⚠️ મહેરબાની કરીને પાસવર્ડ એન્ટર કરો!";
+            return;
+        }
+
+        userPassword = pass;
+        errDiv.style.display = "block";
+        errDiv.style.color = "#2563eb";
+        errDiv.innerHTML = "⏳ પાસવર્ડ વેરિફાય થઈ રહ્યો છે...";
+
+        const success = await fetchData();
+        if (success) {
+            document.getElementById("loginSection").style.display = "none";
+            document.getElementById("mainDashboard").style.display = "block";
+        } else {
+            errDiv.style.color = "#ef4444";
+            errDiv.innerHTML = "❌ ખોટો પાસવર્ડ! ફરી પ્રયત્ન કરો.";
+        }
+    }
+
+    async function fetchData() {
+        const statusMsg = document.getElementById("statusMessage");
+        const table = document.getElementById("dataTable");
+        statusMsg.style.display = "block";
+        statusMsg.innerHTML = "📥 ડેટા લોડ થઈ રહ્યો છે...";
+
+        try {
+            const response = await fetch(${API_URL}?pass=${encodeURIComponent(userPassword)});
+            const result = await response.json();
+
+            if (result.status === "success" && result.data.length > 0) {
+                allData = result.data;
+                renderTable(allData);
+                statusMsg.style.display = "none";
+                table.style.display = "table";
+                return true;
+            } else {
+                return false;
+            }
+        } catch (error) {
+            console.error(error);
+            statusMsg.innerHTML = "❌ કનેક્શન પ્રોબ્લેમ! ફરી પ્રયત્ન કરો.";
+            return false;
+        }
+    }
+
+    function renderTable(data) {
+        const thead = document.getElementById("tableHead");
+        const tbody = document.getElementById("tableBody");
+        
+        thead.innerHTML = "";
+        tbody.innerHTML = "";
+
+        if (data.length === 0) return;
+
+        let headRow = "<tr>";
+        data[0].forEach(col => { headRow += <th>${col}</th>; });
+        headRow += "</tr>";
+        thead.innerHTML = headRow;
+
+        for (let i = 1; i < data.length; i++) {
+            let bodyRow = "<tr>";
+            data[i].forEach(cell => {
+                bodyRow += <td>${cell !== null && cell !== undefined ? cell : ''}</td>;
+            });
+            bodyRow += "</tr>";
+            tbody.innerHTML += bodyRow;
+        }
+    }
+
+    function filterData() {
+        const query = document.getElementById("searchInput").value.toLowerCase();
+        if (allData.length === 0) return;
+
+        const headers = allData[0];
+        const filteredRows = allData.slice(1).filter(row => {
+            return row.some(cell => String(cell).toLowerCase().includes(query));
+        });
+
+        renderTable([headers, ...filteredRows]);
+    }
+</script>
+
+</body>
+</html>
