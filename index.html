@@ -6,33 +6,56 @@
   <title>Police Station Tenure Tracker</title>
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
-    .container { width: 100%; max-width: 900px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .container { width: 100%; max-width: 1000px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
     h2 { text-align: center; color: #1a365d; margin-bottom: 20px; }
-    .login-box, .search-box { margin-bottom: 20px; text-align: center; }
+    .login-box { margin-bottom: 20px; text-align: center; }
     input[type="password"], input[type="text"] { padding: 10px 15px; width: 60%; max-width: 300px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
-    button { padding: 10px 20px; background-color: #2b6cb0; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-left: 10px; }
-    button:hover { background-color: #2c5282; }
+    
+    /* Dynamic Buttons Layout */
+    .filter-container { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px; }
+    .btn { padding: 10px 18px; color: white; border: none; border-radius: 6px; font-size: 15px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn-login { background-color: #2b6cb0; }
+    .btn-all { background-color: #4a5568; }
+    .btn-3yr { background-color: #dd6b20; }
+    .btn-4yr { background-color: #e53e3e; }
+    .btn-5yr { background-color: #9b2c2c; }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    
     #statusMsg { text-align: center; font-weight: bold; margin: 15px 0; color: #2b6cb0; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; display: none; }
-    th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+    th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; font-size: 14px; }
     th { background-color: #2b6cb0; color: white; }
     tr:nth-child(even) { background-color: #f7fafc; }
+    .row-count { text-align: right; font-weight: bold; color: #2d3748; margin-top: 10px; }
   </style>
 </head>
 <body>
 
 <div class="container">
   <h2>Police Station Tenure Tracker</h2>
- 
+
   <!-- Login Section -->
   <div id="loginSection" class="login-box">
     <input type="password" id="userPassword" placeholder="પાસવર્ડ નાખો...">
-    <button onclick="login()">ઓપન કરો</button>
+    <button class="btn btn-login" onclick="login()">ઓપન કરો</button>
   </div>
 
-  <!-- Search Section -->
-  <div id="searchSection" class="search-box" style="display:none;">
-    <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="નામ કે વિગત શોધો...">
+  <!-- Main Dashboard (Hidden initially) -->
+  <div id="dashboardSection" style="display:none;">
+    <!-- Filter Buttons -->
+    <div class="filter-container">
+      <button class="btn btn-all" onclick="filterTenure(0)">📋 બધો જ ડેટા</button>
+      <button class="btn btn-3yr" onclick="filterTenure(3)">⚠️ 3+ વર્ષવાળા</button>
+      <button class="btn btn-4yr" onclick="filterTenure(4)">🚨 4+ વર્ષવાળા</button>
+      <button class="btn btn-5yr" onclick="filterTenure(5)">🔥 5+ વર્ષ કે તેથી વધુ</button>
+    </div>
+
+    <!-- Search Bar -->
+    <div style="text-align: center; margin-bottom: 15px;">
+      <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="નામ, બકલ નં. કે હોદ્દો શોધો...">
+    </div>
+
+    <div id="rowCount" class="row-count"></div>
   </div>
 
   <div id="statusMsg"></div>
@@ -45,9 +68,11 @@
 </div>
 
 <script>
+  // Google Sheet Web App URL
   const API_URL = "https://script.google.com/macros/s/AKfycbwFRshQs8oQQfSS873BvLjU2ff3SWDph2gaxmVLw8weMfnPZCSs4QiG-dFNKxg-MY_SUg/exec";
 
-  let allData = [];
+  let rawData = [];
+  let tenureColIndex = -1;
 
   async function login() {
     const userPassword = document.getElementById("userPassword").value;
@@ -66,12 +91,16 @@
       const result = await response.json();
 
       if (result.status === "success" && result.data.length > 0) {
-        allData = result.data;
-        renderTable(allData);
+        rawData = result.data;
+        findTenureColumnIndex(rawData[0]);
+        
         statusMsg.style.display = "none";
-        document.getElementById("dataTable").style.display = "table";
         document.getElementById("loginSection").style.display = "none";
-        document.getElementById("searchSection").style.display = "block";
+        document.getElementById("dashboardSection").style.display = "block";
+        document.getElementById("dataTable").style.display = "table";
+        
+        // Default display all data
+        filterTenure(0);
       } else {
         statusMsg.style.color = "red";
         statusMsg.innerHTML = "❌ ખોટો પાસવર્ડ! એક્સેસ ના મંજૂર.";
@@ -83,34 +112,98 @@
     }
   }
 
-  function renderTable(data) {
+  // Auto detect Tenure Column (વર્ષ/સમયગાળો ધરાવતી કોલમ શોધશે)
+  function findTenureColumnIndex(headers) {
+    headers.forEach((h, index) => {
+      const headerText = h.toString().toLowerCase();
+      if (headerText.includes("સમય") || headerText.includes("વર્ષ") || headerText.includes("tenure") || headerText.includes("મુદ્દત")) {
+        tenureColIndex = index;
+      }
+    });
+  }
+
+  // Core Filter Function for Years (3, 4, 5+ Years)
+  function filterTenure(minYears) {
     const headerRow = document.getElementById("tableHeader");
     const bodyRows = document.getElementById("tableBody");
     headerRow.innerHTML = "";
     bodyRows.innerHTML = "";
 
-    data[0].forEach(function(header) {
+    // Header Rendering
+    rawData[0].forEach(header => {
       const th = document.createElement("th");
       th.innerText = header;
       headerRow.appendChild(th);
     });
 
-    for (let i = 1; i < data.length; i++) {
-      const tr = document.createElement("tr");
-      data[i].forEach(function(cell) {
-        const td = document.createElement("td");
-        td.innerText = cell;
-        tr.appendChild(td);
-      });
-      bodyRows.appendChild(tr);
+    let matchedCount = 0;
+
+    // Row Filtering
+    for (let i = 1; i < rawData.length; i++) {
+      const row = rawData[i];
+      let rowYears = 0;
+
+      if (tenureColIndex !== -1) {
+        rowYears = extractYears(row[tenureColIndex]);
+      } else {
+        // Search full row if column name not auto-detected
+        row.forEach(cell => {
+          const yrs = extractYears(cell);
+          if (yrs > rowYears) rowYears = yrs;
+        });
+      }
+
+      // Check condition
+      if (minYears === 0 || rowYears >= minYears) {
+        const tr = document.createElement("tr");
+        row.forEach(cell => {
+          const td = document.createElement("td");
+          td.innerText = cell;
+          tr.appendChild(td);
+        });
+        bodyRows.appendChild(tr);
+        matchedCount++;
+      }
     }
+
+    // Update Counter
+    document.getElementById("rowCount").innerText = કુલ કર્મચારીઓ: ${matchedCount};
   }
 
-  function filterTable() {
+  // Utility to extract numeric years/days from cell text
+  function extractYears(cellValue) {
+    if (!cellValue) return 0;
+    const str = cellValue.toString().toLowerCase();
+
+    // Check for explicit "વર્ષ" or "Year"
+    if (str.includes("વર્ષ") || str.includes("year")) {
+      const match = str.match(/\d+(\.\d+)?/);
+      if (match) return parseFloat(match[0]);
+    }
+    
+    // Check for days (1095 days = 3 years, 1460 = 4 years, 1825 = 5 years)
+    if (str.includes("દિવસ") || str.includes("day")) {
+      const match = str.match(/\d+/);
+      if (match) return parseInt(match[0]) / 365;
+    }
+
+    // Plain numbers check
+    const match = str.match(/\d+(\.\d+)?/);
+    if (match) {
+      const num = parseFloat(match[0]);
+      if (num > 100) return num / 365; // If days
+      return num; // If already years
+    }
+
+    return 0;
+  }
+
+  // Search Filter
+  function searchTable() {
     const input = document.getElementById("searchInput").value.toLowerCase();
     const rows = document.querySelectorAll("#tableBody tr");
 
-    rows.forEach(function(row) {
+    rows.forEach(row => {
       const text = row.innerText.toLowerCase();
       row.style.display = text.includes(input) ? "" : "none";
     });
