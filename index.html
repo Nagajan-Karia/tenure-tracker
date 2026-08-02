@@ -11,7 +11,6 @@
     .login-box { margin-bottom: 20px; text-align: center; }
     input[type="password"], input[type="text"] { padding: 10px 15px; width: 60%; max-width: 300px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
     
-    /* Dynamic Buttons Layout */
     .filter-container { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px; }
     .btn { padding: 10px 18px; color: white; border: none; border-radius: 6px; font-size: 15px; cursor: pointer; font-weight: bold; transition: 0.2s; }
     .btn-login { background-color: #2b6cb0; }
@@ -19,7 +18,7 @@
     .btn-3yr { background-color: #dd6b20; }
     .btn-4yr { background-color: #e53e3e; }
     .btn-5yr { background-color: #9b2c2c; }
-    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn:hover { opacity: 0.85; }
     
     #statusMsg { text-align: center; font-weight: bold; margin: 15px 0; color: #2b6cb0; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; display: none; }
@@ -34,15 +33,12 @@
 <div class="container">
   <h2>Police Station Tenure Tracker</h2>
 
-  <!-- Login Section -->
   <div id="loginSection" class="login-box">
     <input type="password" id="userPassword" placeholder="પાસવર્ડ નાખો...">
     <button class="btn btn-login" onclick="login()">ઓપન કરો</button>
   </div>
 
-  <!-- Main Dashboard (Hidden initially) -->
   <div id="dashboardSection" style="display:none;">
-    <!-- Filter Buttons -->
     <div class="filter-container">
       <button class="btn btn-all" onclick="filterTenure(0)">📋 બધો જ ડેટા</button>
       <button class="btn btn-3yr" onclick="filterTenure(3)">⚠️ 3+ વર્ષવાળા</button>
@@ -50,7 +46,6 @@
       <button class="btn btn-5yr" onclick="filterTenure(5)">🔥 5+ વર્ષ કે તેથી વધુ</button>
     </div>
 
-    <!-- Search Bar -->
     <div style="text-align: center; margin-bottom: 15px;">
       <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="નામ, બકલ નં. કે હોદ્દો શોધો...">
     </div>
@@ -60,7 +55,6 @@
 
   <div id="statusMsg"></div>
 
-  <!-- Data Table -->
   <table id="dataTable">
     <thead><tr id="tableHeader"></tr></thead>
     <tbody id="tableBody"></tbody>
@@ -68,14 +62,13 @@
 </div>
 
 <script>
-  // Google Sheet Web App URL
-  const API_URL = "https://script.google.com/macros/s/AKfycbwutG29zVz9pU6TT4hSnWsx3NsgLmlUfBhM3a4JWY191GFe9pJZNv7kznjwKe4GCDBuIg/exec";
+  // ⚠️ તમારી Tenure Google Sheet ની Web App URL અહીં મુકો
+  const API_URL = "https://script.google.com/macros/s/AKfycby_Y5SysHadS_iI8JvoOOKfnQT0RN0Y6pMeElZZ4AdgOgv9kR7S7F11DbOYF8KpeJ5P8A/exec";
 
   let rawData = [];
-  let tenureColIndex = -1;
 
   async function login() {
-    const userPassword = document.getElementById("userPassword").value;
+    const userPassword = document.getElementById("userPassword").value.trim();
     const statusMsg = document.getElementById("statusMsg");
     
     if(!userPassword) {
@@ -84,52 +77,43 @@
     }
 
     statusMsg.style.display = "block";
+    statusMsg.style.color = "#2b6cb0";
     statusMsg.innerHTML = "⏳ ડેટા લોડ થઈ રહ્યો છે...";
 
     try {
-      const response = await fetch(API_URL + "?pass=" + encodeURIComponent(userPassword));
+      const fetchUrl = API_URL + "?pass=" + encodeURIComponent(userPassword);
+      const response = await fetch(fetchUrl);
       const result = await response.json();
 
-      if (result.status === "success" && result.data.length > 0) {
+      if (result.status === "success" && result.data && result.data.length > 0) {
         rawData = result.data;
-        findTenureColumnIndex(rawData[0]);
         
         statusMsg.style.display = "none";
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("dashboardSection").style.display = "block";
         document.getElementById("dataTable").style.display = "table";
         
-        // Default display all data
         filterTenure(0);
       } else {
         statusMsg.style.color = "red";
-        statusMsg.innerHTML = "❌ ખોટો પાસવર્ડ! એક્સેસ ના મંજૂર.";
+        statusMsg.innerHTML = "❌ ખોટો પાસવર્ડ અથવા ડેટા મળ્યો નથી!";
       }
     } catch (error) {
       console.error(error);
       statusMsg.style.color = "red";
-      statusMsg.innerHTML = "❌ ડેટા લોડ કરવામાં ભૂલ આવી. કૃપા કરીને ફરી પ્રયાસ કરો.";
+      statusMsg.innerHTML = "❌ કનેક્શનમાં ભૂલ આવી! કૃપા કરીને Apps Script ની લિંક ચેક કરો.";
     }
   }
 
-  // Auto detect Tenure Column (વર્ષ/સમયગાળો ધરાવતી કોલમ શોધશે)
-  function findTenureColumnIndex(headers) {
-    headers.forEach((h, index) => {
-      const headerText = h.toString().toLowerCase();
-      if (headerText.includes("સમય") || headerText.includes("વર્ષ") || headerText.includes("tenure") || headerText.includes("મુદ્દત")) {
-        tenureColIndex = index;
-      }
-    });
-  }
-
-  // Core Filter Function for Years (3, 4, 5+ Years)
   function filterTenure(minYears) {
     const headerRow = document.getElementById("tableHeader");
     const bodyRows = document.getElementById("tableBody");
     headerRow.innerHTML = "";
     bodyRows.innerHTML = "";
 
-    // Header Rendering
+    if (rawData.length === 0) return;
+
+    // Header set
     rawData[0].forEach(header => {
       const th = document.createElement("th");
       th.innerText = header;
@@ -138,22 +122,15 @@
 
     let matchedCount = 0;
 
-    // Row Filtering
     for (let i = 1; i < rawData.length; i++) {
       const row = rawData[i];
       let rowYears = 0;
 
-      if (tenureColIndex !== -1) {
-        rowYears = extractYears(row[tenureColIndex]);
-      } else {
-        // Search full row if column name not auto-detected
-        row.forEach(cell => {
-          const yrs = extractYears(cell);
-          if (yrs > rowYears) rowYears = yrs;
-        });
-      }
+      row.forEach(cell => {
+        const yrs = extractYears(cell);
+        if (yrs > rowYears) rowYears = yrs;
+      });
 
-      // Check condition
       if (minYears === 0 || rowYears >= minYears) {
         const tr = document.createElement("tr");
         row.forEach(cell => {
@@ -166,39 +143,33 @@
       }
     }
 
-    // Update Counter
     document.getElementById("rowCount").innerText = કુલ કર્મચારીઓ: ${matchedCount};
   }
 
-  // Utility to extract numeric years/days from cell text
   function extractYears(cellValue) {
     if (!cellValue) return 0;
     const str = cellValue.toString().toLowerCase();
 
-    // Check for explicit "વર્ષ" or "Year"
     if (str.includes("વર્ષ") || str.includes("year")) {
       const match = str.match(/\d+(\.\d+)?/);
       if (match) return parseFloat(match[0]);
     }
     
-    // Check for days (1095 days = 3 years, 1460 = 4 years, 1825 = 5 years)
     if (str.includes("દિવસ") || str.includes("day")) {
       const match = str.match(/\d+/);
       if (match) return parseInt(match[0]) / 365;
     }
 
-    // Plain numbers check
     const match = str.match(/\d+(\.\d+)?/);
     if (match) {
       const num = parseFloat(match[0]);
-      if (num > 100) return num / 365; // If days
-      return num; // If already years
+      if (num > 100) return num / 365;
+      return num;
     }
 
     return 0;
   }
 
-  // Search Filter
   function searchTable() {
     const input = document.getElementById("searchInput").value.toLowerCase();
     const rows = document.querySelectorAll("#tableBody tr");
