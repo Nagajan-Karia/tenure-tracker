@@ -62,9 +62,11 @@
 </div>
 
 <script>
+  // ⚠️ તમારી Tenure Google Sheet ની Web App URL અહીં રહેવા દો
   const API_URL = "https://script.google.com/macros/s/AKfycbysu-eBjalOMAI_l0c1wZSIUwHH_BrgTDe3KykAYzLnjTu0dE-lYYEeAuFF0S9eAD4/exec";
 
   let rawData = [];
+  let psIndex = 4; // E કોલમ (PS JOIN DATE)
 
   async function login() {
     const userPassword = document.getElementById("userPassword").value.trim();
@@ -87,6 +89,11 @@
       if (result.status === "success" && result.data && result.data.length > 0) {
         rawData = result.data;
         
+        // હેડર રો માંથી PS JOIN DATE શોધી કાઢશે
+        const headers = rawData[0];
+        let foundIdx = headers.findIndex(h => h.toString().toUpperCase().includes("PS JOIN DATE"));
+        if (foundIdx !== -1) psIndex = foundIdx;
+
         statusMsg.style.display = "none";
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("dashboardSection").style.display = "block";
@@ -112,18 +119,20 @@
 
     if (!rawData || rawData.length === 0) return;
 
-    const headers = rawData[0];
-    headers.forEach(header => {
+    // 1. સેટ હેડર્સ (સાથે છેલ્લે 'ટેન્યુઅર (વર્ષ)' કોલમ ઉમેરશે)
+    rawData[0].forEach(header => {
       const th = document.createElement("th");
       th.innerText = header;
       headerRow.appendChild(th);
     });
-
-    // E કોલમ = Index 4 (PS JOIN DATE)
-    let psIndex = 4; 
+    const extraTh = document.createElement("th");
+    extraTh.innerText = "ટેન્યુઅર (વર્ષ)";
+    extraTh.style.backgroundColor = "#c53030";
+    headerRow.appendChild(extraTh);
 
     let matchedCount = 0;
 
+    // 2. ડેટા લાઈન્સ ચેક કરો
     for (let i = 1; i < rawData.length; i++) {
       const row = rawData[i];
       const joinCell = row[psIndex];
@@ -131,11 +140,21 @@
 
       if (minYears === 0 || yearsServed >= minYears) {
         const tr = document.createElement("tr");
-        row.forEach((cell, idx) => {
+        
+        // મૂળ ડેટા પ્રિન્ટ કરો
+        row.forEach(cell => {
           const td = document.createElement("td");
           td.innerText = cell;
           tr.appendChild(td);
         });
+
+        // છેલ્લી કોલમમાં કેટલા વર્ષ થયા તે બતાવો
+        const extraTd = document.createElement("td");
+        extraTd.innerText = yearsServed > 0 ? yearsServed.toFixed(1) + " વર્ષ" : "ગણતરી બાકી";
+        extraTd.style.fontWeight = "bold";
+        extraTd.style.color = yearsServed >= 5 ? "#9b2c2c" : (yearsServed >= 3 ? "#dd6b20" : "#2b6cb0");
+        tr.appendChild(extraTd);
+
         bodyRows.appendChild(tr);
         matchedCount++;
       }
@@ -144,33 +163,41 @@
     document.getElementById("rowCount").innerText = "કુલ કર્મચારીઓ: " + matchedCount;
   }
 
-  // 🚀 દરેક તારીખ ફોર્મેટમાંથી ઓટોમેટિક વર્ષ ગણવાનું મજબૂત લોજિક
+  // 🤖 અત્યંત મજબૂત તારીખ અને વર્ષ ગણવાનું લોજિક (નંબર, ડેટ કે સ્ટ્રિંગ બધું જ ચાલશે)
   function calculateYears(val) {
-    if (!val) return 0;
-
+    if (val === null || val === undefined || val === '') return 0;
+    
     let dt = null;
 
-    // જો ગૂગલ શીટમાંથી સીધી Date ઓબ્જેક્ટ અથવા ISO Text આવે
-    if (typeof val === 'string') {
-      const str = val.trim();
-      // 1. DD/MM/YYYY ફોર્મેટ
-      if (str.includes('/')) {
-        const p = str.split('/');
-        if (p.length === 3) {
-          dt = new Date(parseInt(p[2], 10), parseInt(p[1], 10) - 1, parseInt(p[0], 10));
-        }
-      } 
-      // 2. YYYY-MM-DD (ગૂગલ બેકએન્ડ ફોર્મેટ)
-      else if (str.includes('-')) {
-        dt = new Date(str);
-      }
-    } else if (val instanceof Date) {
+    // જો ગૂગલ શીટ નંબર (Serial Date) મોકલે
+    if (typeof val === 'number') {
+      dt = new Date((val - 25569) * 86400 * 1000);
+    } 
+    // જો ડેટ ઓબ્જેક્ટ હોય
+    else if (val instanceof Date) {
       dt = val;
+    } 
+    // જો ટેક્સ્ટ (સ્ટ્રિંગ) હોય
+    else if (typeof val === 'string') {
+      const str = val.trim();
+      if (!isNaN(str) && str.length > 4) {
+        dt = new Date((parseFloat(str) - 25569) * 86400 * 1000);
+      } else if (str.includes('/') || str.includes('-')) {
+        const parts = str.split(/[\/\-]/);
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+          } else {
+            dt = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+          }
+        }
+      }
     }
 
     if (dt && !isNaN(dt.getTime())) {
       const today = new Date();
-      const diffYears = (today - dt) / (1000 * 60 * 60 * 24 * 365.25);
+      const diffTime = today - dt;
+      const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
       return diffYears > 0 ? diffYears : 0;
     }
 
